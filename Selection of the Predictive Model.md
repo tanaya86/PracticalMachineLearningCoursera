@@ -390,7 +390,7 @@ corrplot(corMatrix, order = "FPC", method = "color", type = "lower",
          tl.cex = 0.8, tl.col = rgb(0, 0, 0),mar = c(1, 1, 1, 1), title = "Training Dataset Correlogram")
 ```
 
-![al image](http://example.com/logo.png)
+![al image](https://github.com/tanaya86/PracticalMachineLearningCoursera/blob/main/PML%201.png)
 
 All the correlations have a darker tone of blue if it’s closer to 1, and a darker tone of red when it’s closer to -1, which means a stronger relationship in both cases.
 
@@ -431,6 +431,8 @@ DT_Model <- train(classe~., data=TrainData, method="rpart", trControl=fitControl
 #  Plot 
 fancyRpartPlot(DT_Model$finalModel)
 ```
+
+![al image](https://github.com/tanaya86/PracticalMachineLearningCoursera/blob/main/PML%202.png)
 
 Now we validate the model to see it's performance by looking at the accuracy variable.
 
@@ -512,6 +514,8 @@ RF_Model <- train(classe~., data=TrainData, method="rf", trControl=fitControl, v
 plot(RF_Model,main="RF Model Accuracy by number of predictors")
 ```
 
+![al image](https://github.com/tanaya86/PracticalMachineLearningCoursera/blob/main/PML%203.png)
+
 Now we validate the model to see it's performance by looking at the accuracy variable.
 
 ```{r}
@@ -586,6 +590,8 @@ Using cross-validation, the model accuracy is 0.994. Therefore the out-of-sample
 ```{r}
 plot(RF_Model$finalModel,main="Model error of Random forest model by number of trees")
 ```
+
+![al image](https://github.com/tanaya86/PracticalMachineLearningCoursera/blob/main/PML%204.png)
 
 ## Prediction of the values of classe for the validation data
 
