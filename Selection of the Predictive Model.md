@@ -1,0 +1,234 @@
+---
+title: "Practical Machine Learning - Selection of the Predictive Model"
+author: "Tanaya Narayan Prabhu"
+date: "29/11/2020"
+output: md_document
+keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+## Overview
+
+```
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. We were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The Information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har.
+```
+
+## Summary
+
+```
+This human activity recognition research has traditionally focused on discriminating between different activities, i.e. to predict "which" activity was performed at a specific point in time (like with the Daily Living Activities dataset above). The approach we propose for the Weight Lifting Exercises dataset is to investigate "how (well)" an activity was performed by the wearer. The "how (well)" investigation has only received little attention so far, even though it potentially provides useful information for a large variety of applications,such as sports training.
+
+In this work we first define quality of execution and investigate three aspects that pertain to qualitative activity recognition: the problem of specifying correct execution, the automatic and robust detection of execution mistakes, and how to provide feedback on the quality of execution to the user. We tried out an on-body sensing approach (dataset here), but also an "ambient sensing approach".
+
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. Participants were supervised by an experienced weight lifter to make sure the execution complied to the manner they were supposed to simulate. The exercises were performed by six male participants aged between 20-28 years, with little weight lifting experience. We made sure that all participants could easily simulate the mistakes in a safe and controlled manner by using a relatively light dumbbell (1.25kg).
+
+```
+
+```
+Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+```
+
+# Data Processing
+
+```{r}
+# Libraries
+library(knitr)
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(randomForest)
+library(corrplot)
+library(caret)
+
+library(RColorBrewer)
+library(gbm)
+
+# Set seed to create reproducibility
+set.seed(12345)
+```
+
+# Loading the Data
+
+```{r}
+TrainData <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"),header=TRUE)
+print(dim(TrainData))
+```
+
+```{r}
+ValidData <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"),header=TRUE)
+print(dim(ValidData))
+```
+
+```{r}
+print(str(TrainData))
+```
+
+# Data Cleaning
+
+```{r}
+# Removing NA's, empty values, and unnecesary variables in the Trainning dataset.
+EmptyCols <- which(colSums(is.na(TrainData) |TrainData=="")>0.9*dim(TrainData)[1]) 
+TrainDataClean <- TrainData[,-EmptyCols]
+TrainDataClean <- TrainDataClean[,-c(1:7)]
+print(dim(TrainDataClean))
+```
+
+```{r}
+# Removing NA's, empty values in the Test dataset.
+EmptyCols <- which(colSums(is.na(ValidData) |ValidData=="")>0.9*dim(ValidData)[1]) 
+ValidDataClean <- ValidData[,-EmptyCols]
+ValidDataClean <- ValidDataClean[,-1]
+print(dim(ValidDataClean))
+```
+
+# Low variation data exclusion
+
+```{r}
+# Low variation data exclusion from the TrainData Dataset
+NZV <- nearZeroVar(TrainDataClean)
+print(NZV)
+```
+
+Acording to this, all the current variables report some variation. No more variables need to be removed from the training dataset.
+
+# Data Partitioning for prediction
+
+```{r}
+set.seed(12345) 
+inTrain <- createDataPartition(TrainDataClean$classe, p = 0.7, list = FALSE)
+TrainData <- TrainDataClean[inTrain, ]
+TestData <- TrainDataClean[-inTrain, ]
+print(dim(TrainData))
+```
+
+After cleaning, the new training data set has only 53 columns.
+
+## Exploratoy Data Analysis
+
+```{r}
+corMatrix <- cor(TrainData[, -53])
+corrplot(corMatrix, order = "FPC", method = "color", type = "lower", 
+         tl.cex = 0.8, tl.col = rgb(0, 0, 0),mar = c(1, 1, 1, 1), title = "Training Dataset Correlogram")
+```
+
+All the correlations have a darker tone of blue if it’s closer to 1, and a darker tone of red when it’s closer to -1, which means a stronger relationship in both cases.
+
+```{r}
+# Count the number of variables that are highly correlated with another one
+M <- abs(cor(TrainData[,-53])); diag(M) <- 0
+M <- which(M > 0.8, arr.ind = T)
+M <- dim(M)[1]
+print(M)
+```
+
+There are 38 pairs of highly correlated variables. 
+
+## Selection of the Predictive Model
+
+```
+To predict the outcome, we will use two different methods to model the regression using the TrainData dataset:
+- Decision Trees
+- Random Forest
+Then, they will be applied to the TestData dataset to compare accuracies. The best model will be our Final model.
+```
+
+# Cross Validation
+
+Cross-validation is done for each model with K = 3. 
+
+```{r}
+fitControl <- trainControl(method='cv', number = 3)
+```
+
+# Decision Trees Model
+
+```{r}
+# Decision Trees Model
+DT_Model <- train(classe~., data=TrainData, method="rpart", trControl=fitControl)
+#  Plot 
+fancyRpartPlot(DT_Model$finalModel)
+```
+
+Now we validate the model to see it's performance by looking at the accuracy variable.
+
+```{r}
+# Testing the model
+DT_Predict <- predict(DT_Model, newdata=TestData)
+DT_cm <- confusionMatrix(DT_Predict, as.factor(TestData$classe))
+# Display confusion matrix and model accuracy
+print(DT_cm)
+```
+
+```{r}
+# Model Accuracy
+print(DT_cm$overall[1])
+```
+
+Using cross-validation, the accuracy of this first model is about 0.489.Therefore the out-of-sample-error is 0.5, which is high.
+
+## Random Forest Model
+
+```{r}
+# Random Forest Model
+RF_Model <- train(classe~., data=TrainData, method="rf", trControl=fitControl, verbose=FALSE)
+# Plot
+plot(RF_Model,main="RF Model Accuracy by number of predictors")
+```
+
+Now we validate the model to see it's performance by looking at the accuracy variable.
+
+```{r}
+# Testing the model
+RF_Predict <- predict(RF_Model, newdata=TestData)
+RF_cm <- confusionMatrix(RF_Predict, as.factor(TestData$classe))
+# Display confusion matrix and model accuracy
+print(RF_cm)
+```
+
+```{r}
+# Model Accuracy
+print(RF_cm$overall[1])
+```
+
+Using cross-validation, the model accuracy is 0.994. Therefore the out-of-sample-error is 0.006.
+
+```{r}
+plot(RF_Model$finalModel,main="Model error of Random forest model by number of trees")
+```
+
+## Prediction of the values of classe for the validation data
+
+By looking all  the accuracy rate values of the models, we select ‘Random Forest’ model. 
+
+```{r}
+# Model Validation 
+Prediction_Test <- predict(RF_Model,newdata=ValidDataClean)
+print(Prediction_Test)
+```
+
+## Conclusion
+
+```
+The confusion matrices shows that the Random Forest algorithm performs better than decision trees. The accuracy for the Random Forest model is 0.994 compared to 0.489 for Decision Tree model. Hence our selected predictive model is Random Forest model.
+```
