@@ -392,7 +392,7 @@ corrplot(corMatrix, order = "FPC", method = "color", type = "lower",
 
 ![al image](https://github.com/tanaya86/PracticalMachineLearningCoursera/blob/main/PML%201.png)
 
-All the correlations have a darker tone of blue if it’s closer to 1, and a darker tone of red when it’s closer to -1, which means a stronger relationship in both cases.
+All the correlations have a darker tone of blue if it is closer to 1, and a darker tone of red when it’s closer to -1, which means a stronger relationship in both cases.
 
 ```{r}
 # Count the number of variables that are highly correlated with another one
